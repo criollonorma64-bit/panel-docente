@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Panel docente · Asistencia</title>
+<style>
+:root{color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#05070f;--card:rgba(12,18,36,.75);--tx:#e6f1ff;--mu:#7f93b5;--ac:#00e5ff;--ac2:#a855ff;--bd:rgba(0,229,255,.25);--ok:#2dffb3;--wa:#ffc247;--er:#ff4d6d}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;color:var(--tx);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;background:radial-gradient(circle at 15% 0,rgba(168,85,255,.22),transparent 45%),radial-gradient(circle at 90% 100%,rgba(0,229,255,.18),transparent 45%),linear-gradient(rgba(0,229,255,.05) 1px,transparent 1px) 0 0/32px 32px,linear-gradient(90deg,rgba(0,229,255,.05) 1px,transparent 1px) 0 0/32px 32px,var(--bg)}
+main{max-width:860px;margin:0 auto;padding:22px 16px 40px}
+h1{font-size:24px;margin:0 0 4px;letter-spacing:.06em;text-transform:uppercase;background:linear-gradient(90deg,var(--ac),var(--ac2));-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{font-size:12px;margin:0 0 10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ac)}
+.sub{color:var(--mu);font-size:13px;margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:16px;margin-bottom:14px;backdrop-filter:blur(10px);box-shadow:0 0 28px rgba(0,229,255,.12),inset 0 0 22px rgba(168,85,255,.06)}
+input,select{width:100%;padding:12px;border:1px solid var(--bd);border-radius:10px;font:inherit;background:rgba(5,7,15,.8);color:var(--tx);outline:0}
+input:focus,select:focus{border-color:var(--ac);box-shadow:0 0 0 3px rgba(0,229,255,.18)}
+button{font:inherit;cursor:pointer;width:100%;padding:12px;border:0;border-radius:12px;background:linear-gradient(90deg,var(--ac),var(--ac2));color:#04101a;font-weight:800;letter-spacing:.06em;text-transform:uppercase;box-shadow:0 0 20px rgba(0,229,255,.4)}
+button.s{background:rgba(5,7,15,.8);color:var(--ac);border:1px solid var(--bd);box-shadow:none}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.row>*{flex:1}
+.k{text-align:center;padding:12px;border:1px solid currentColor;border-radius:14px;min-width:90px;background:rgba(5,7,15,.6);font-size:12px;letter-spacing:.1em;text-transform:uppercase}.k b{display:block;font-size:30px;letter-spacing:0}
+.ok{color:var(--ok)}.wa{color:var(--wa)}.er{color:var(--er)}.mu{color:var(--mu);font-size:13px}
+.wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px}td,th{padding:8px 6px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}th{color:var(--mu);font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+.hide{display:none}#toast{min-height:20px;margin:8px 0 0;font-size:13px;color:var(--ac)}
+</style></head><body><main>
+<h1>Panel docente</h1>
+<p class="sub">Tercero BT Informática · Vespertina · Paralelo A · Sistemas Operativos y Redes</p>
+<div class="card" id="login"><label for="clave" class="mu">Clave del docente</label><input id="clave" type="password" inputmode="numeric" autocomplete="off" style="margin-top:6px"><button id="ent" style="margin-top:12px">Entrar</button><p class="er" id="err"></p></div>
+<div id="panel" class="hide">
+<div class="card"><div class="row"><select id="fec"></select><span class="mu" id="st"></span></div>
+<div class="row" style="margin-top:10px"><button class="s" id="aula">📍 Fijar aula aquí</button><button class="s" id="csv">⬇ Descargar CSV</button><button class="s" id="cp">⧉ Copiar resumen</button></div><p id="toast"></p></div>
+<div class="row" style="margin-bottom:14px"><div class="k ok"><b id="np">0</b>Presentes</div><div class="k wa"><b id="na">0</b>Atrasos</div><div class="k er"><b id="nf">0</b>Sin registrar</div><div class="k wa"><b id="nw">0</b>Alertas</div></div>
+<div class="card"><h2>Últimos ingresos</h2><div class="wrap"><table><tbody id="rec"></tbody></table></div></div>
+<div class="card"><h2>Lista completa</h2><div class="wrap"><table><thead><tr><th>#</th><th>Estudiante</th><th>Hora</th><th>Estado</th><th>Huella</th><th>Ubicación</th></tr></thead><tbody id="all"></tbody></table></div></div>
+<div class="card"><h2>Probar un PIN</h2>
+<div class="row"><select id="tn"></select><input id="tp" inputmode="numeric" maxlength="4" placeholder="PIN (4 dígitos)"></div><button id="tb" style="margin-top:12px">Probar</button><p id="tst" class="mu"></p></div>
+</div></main>
+<script>
+const DB="https://asistencia-3ro-bti-default-rtdb.firebaseio.com"; // la misma URL de la página del estudiante
+const TZ="America/Guayaquil",TOL=10,RADIO=150;
+const CLH="49b877e7b43fac1fda017dbdbacfecb906a0d6fbf6378137f29287e944566b82"; // clave del docente cifrada
+const PH=["7a3ba3631237471c77b03d3170ded1635c1b1bfadf853aedbe5af70125b320e2", "c871a754e7e30b376f254e1ae6be9f817068f12f3427d96fb48b42d3a69757e1", "50838bc474474562cac9284017e857f0cec4bb745965b5fbaacded91c984de3e", "c34334377e3ffe3b786ce0267673c79f41bbad99508067cab0d22588fe688799", "7098be973adb038dc77418dc539f07cac88dc927c3ab5054cdb6fb72651a074d", "3d1c3dbd2810f50b57ab9a71d627b143fddd44bf6fbd4a58c1192f21f3da1038", "b955f604375edf8cedc40244ffd65085c6566de2c482e9b613d5dd80b2fa75a8", "ab1d8bc832a92565bc63e8ea054850b6f0864a41ceb9de1e74beb449402878f8", "8977788c41943165d150741f7fdcbcd6a62560aa54b35cdbb8bcf37d9e7f7547", "d02595e607baadcac56ea36b6f70acfdd5892ce4821b5b149173d20bf32b1e69", "cc1479d076127e25f508ce15d2917b7af5d63b12cbf926f77efd35b50ef12224", "12287a8c0801d7558d95d6fc29a284028cb8ef192d4d193089524d0e2a361cf3", "2b5561ee730339b01b2cd8ac546e9bdedd1bf4efd16421980d177f2389f2a55a", "43a91c924b0d17ba94abdff21360049b90bcff0cbb64740830b0bf0d78ea819f", "65de25975e499bf1d3bea9a8f7be94e7ad7e2ad24254d7145b39b344cc558f9a", "8a88e7bbfec8340f60608a54be91650e0049f8543e0106841c825251bb1985ff", "ee8697507c64e73a755fc33b42bbbcb8029dc2b14d7dbeda05e96a60c3f2e44e", "54fcc5e72d3bcef3fbe3785b51bf46da71e61200e0085cb9cc34b5b37bd4722a", "ab4869744bf2edede1016b89a11cd733e8111856bb5fa11abbfc78c2ea38e54b", "c3f94a113145f07f73628e10cfccdea86144441bc0176245055f08294c442275", "906f0286f0300b3c1f86e5764647fd000050136ce4e1e00cb1a0490c097af138", "e4e901704237850321aa180be7033bd32bf4bf97386972562c604d8859e45efe"]; // PINs cifrados (PBKDF2), 4 últimos dígitos de la cédula
+const R=["ARBOLEDA LOAIZA TIFFANI LOAIZA","BOLAÑOS QUIÑONES CRISMARI JAVIETH","MARCOS JOSUE BUENAÑO ACURIO","CAÑAR PUNINA VANESSA ANAHI","CHAMBA LEMA DAFNE MONSERRATH","CHANGO CAIZA JAFET EMMANUEL","COLLAGUAZO NINACURI JEFERSON ALEXANDER","ALEX GEOVANNY FAVICELA TIVIANO","GUANGASI TIRADO THALIA AURORA","JIMÉNEZ OROSCO LUIS FERNANDO","LAZ GARCÉS ERICK ALEXANDER","LIZANO VILLARREAL VICTORIA NICOLE","OCHOA SANGUCHO ALAN ANDRÉS","PIMBOMAZA TUBON EDISON ALEXANDER","QUISHPE UQUILLAS HILARY LESSETTE","SAMANIEGO SANCHEZ MAYKEL ALEJANDRO","TIVANLOMBO RAMOS YARVIS JASAEL","TIVIANO CHIMBO CHRISTOPHER JOEL","VILLEGAS PINOS MAYKEL GABRIEL","YANCHAPANTA CRIOLLO INGRID BELEN","YANCHAPANTA YANCHAPANTA MAYKEL STEVE","YUGSI TOAQUIZA JOSTIN JARIEL"];
+const CL=["2026-09-03","2026-09-04","2026-09-10","2026-09-11","2026-09-17","2026-09-18","2026-09-24","2026-09-25","2026-10-01","2026-10-02","2026-10-08","2026-10-09","2026-10-15","2026-10-16","2026-10-22","2026-10-23","2026-10-29","2026-10-30","2026-11-05","2026-11-06","2026-11-12","2026-11-13","2026-11-19","2026-11-20","2026-11-26","2026-11-27"];
+const ESP={"2026-11-22":["00:00","23:59",true],"2026-11-23":["00:00","23:59",true]}; // sesiones especiales: siempre "Presente"
+CL.push(...Object.keys(ESP));CL.sort();
+const H={4:["17:30","18:50"],5:["16:10","17:30"]};
+const $=i=>document.getElementById(i);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const mins=h=>{const p=h.split(":");return+p[0]*60+ +p[1]};
+const info=ms=>{const o={};new Intl.DateTimeFormat("en-CA",{timeZone:TZ,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(new Date(ms)).forEach(p=>o[p.type]=p.value);return{f:o.year+"-"+o.month+"-"+o.day,h:o.hour+":"+o.minute,s:o.hour+":"+o.minute+":"+o.second}};
+const hex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");
+const sha=async s=>hex(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s)));
+const kdf=async(i,p)=>{const k=await crypto.subtle.importKey("raw",new TextEncoder().encode(p),"PBKDF2",false,["deriveBits"]);return hex(await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt:new TextEncoder().encode("bti3a|"+i),iterations:100000},k,256))};
+const SS={g:k=>{try{return sessionStorage.getItem(k)||""}catch(e){return ""}},s:(k,v)=>{try{v?sessionStorage.setItem(k,v):sessionStorage.removeItem(k)}catch(e){}}};
+const AU=()=>{try{return JSON.parse(localStorage.getItem("aula"))}catch(e){return null}};
+const toast=t=>{$("toast").textContent=t;setTimeout(()=>{$("toast").textContent=""},4000)};
+const dist=(a,b,c,d)=>{const r=x=>x*Math.PI/180,h=Math.sin(r(c-a)/2)**2+Math.cos(r(a))*Math.cos(r(c))*Math.sin(r(d-b)/2)**2;return Math.round(2*6371000*Math.asin(Math.sqrt(h)))};
+const cls=e=>e==="Presente"?"ok":e==="Atraso"?"wa":"er";
+let F="",T=null,LAST={reg:[],cl:null};
+async function load(){
+if(document.hidden&&T&&LAST.cl!==null)return;
+try{const hoy=info(Date.now()).f,fechas=CL.filter(c=>c<=hoy);if(!fechas.length)fechas.push(CL[0]);
+if(!F)F=fechas.includes(hoy)?hoy:fechas[fechas.length-1];
+if($("fec").dataset.n!==String(fechas.length)){$("fec").dataset.n=fechas.length;$("fec").innerHTML=fechas.map(f=>"<option>"+f+"</option>").join("")}
+$("fec").value=F;
+const r=await fetch(DB+"/asistencia/"+F+".json");if(!r.ok)throw 0;
+const d=await r.json()||{};
+const w=new Date(F+"T12:00:00Z").getUTCDay(),cl=ESP[F]||H[w]||null,au=AU();
+const reg=Object.keys(d).filter(k=>d[k]&&d[k].ts).map(k=>{const x=d[k],t=info(x.ts),o={i:+k,hora:t.h,seg:t.s,bio:x.bio,dv:x.dv,la:x.la,lo:x.lo,ac:x.ac};
+o.estado=cl&&!cl[2]&&mins(t.h)>mins(cl[0])+TOL?"Atraso":"Presente";
+o.d=au&&x.la!=null?dist(au.lat,au.lng,x.la,x.lo):null;return o});
+const dc={};reg.forEach(x=>{if(x.dv)dc[x.dv]=(dc[x.dv]||0)+1});reg.forEach(x=>{x.rep=!!x.dv&&dc[x.dv]>1;x.alerta=x.bio!=="ok"||x.rep||x.la==null||(x.d!==null&&x.d>RADIO)});
+LAST={reg,cl};render(reg,cl)}
+catch(e){$("st").textContent="Sin conexión, reintentando…"}}
+function ubic(x){if(x.la==null)return'<span class="er">sin ubicación</span>';if(x.d===null)return'<span class="mu">📍 aula sin fijar</span>';const o=x.d<=RADIO?'<span class="ok">✓ '+x.d+" m</span>":'<span class="er">⚠ '+x.d+" m</span>";return o+(x.rep?' <span class="wa">· 📱 celular repetido</span>':"")}
+function render(reg,cl){
+const by={};reg.forEach(x=>by[x.i]=x);
+$("np").textContent=reg.filter(x=>x.estado==="Presente").length;
+$("na").textContent=reg.filter(x=>x.estado==="Atraso").length;
+$("nf").textContent=R.length-reg.length;
+$("nw").textContent=reg.filter(x=>x.alerta).length;
+const rec=[...reg].sort((a,b)=>b.seg.localeCompare(a.seg)).slice(0,8);
+$("rec").innerHTML=rec.length?rec.map(x=>"<tr><td><b>"+x.seg+"</b></td><td>"+esc(R[x.i]||"?")+'</td><td class="'+cls(x.estado)+'">'+x.estado+"</td></tr>").join(""):'<tr><td class="mu">Aún no hay ingresos.</td></tr>';
+$("all").innerHTML=R.map((n,i)=>{const x=by[i];return"<tr><td>"+(i+1)+"</td><td>"+esc(n)+"</td><td>"+(x?x.seg:"—")+'</td><td class="'+(x?cls(x.estado):"er")+'">'+(x?x.estado:"Sin registrar")+"</td><td>"+(x?(x.bio==="ok"?'<span class="ok">✓</span>':'<span class="er">—</span>'):"")+"</td><td>"+(x?ubic(x):"")+"</td></tr>"}).join("");
+$("st").textContent=(cl?(cl[2]?"Sesión especial":"Clase "+cl[0]+"–"+cl[1])+" · ":"Sin clase · ")+"actualizado "+info(Date.now()).s}
+function start(){$("login").classList.add("hide");$("panel").classList.remove("hide");clearInterval(T);load();T=setInterval(load,5000)}
+$("ent").onclick=async()=>{try{if(await sha("bti3a|doc|"+$("clave").value)===CLH){SS.s("k",CLH);$("err").textContent="";start()}else $("err").textContent="Clave incorrecta."}catch(e){$("err").textContent="Abre esta página desde tu enlace https://, no desde un archivo descargado."}};
+$("clave").onkeydown=e=>{if(e.key==="Enter")$("ent").click()};
+$("fec").onchange=()=>{F=$("fec").value;load()};
+$("aula").onclick=()=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>{try{localStorage.setItem("aula",JSON.stringify({lat:p.coords.latitude,lng:p.coords.longitude}))}catch(e){}toast("Aula fijada con tu ubicación actual (radio "+RADIO+" m). Se guarda en este dispositivo.");load()},()=>toast("No se pudo obtener tu ubicación. Permite el acceso en el navegador."),{enableHighAccuracy:true,timeout:15000}):toast("Ubicación no disponible");
+$("csv").onclick=()=>{const by={};LAST.reg.forEach(x=>by[x.i]=x);
+let t="\uFEFFN°,Estudiante,Fecha,Hora,Estado,Huella,Distancia al aula (m),Celular repetido\n";
+R.forEach((n,i)=>{const x=by[i];t+=[i+1,'"'+n+'"',F,x?x.seg:"",x?x.estado:"Sin registrar",x?(x.bio==="ok"?"Sí":"No"):"",x&&x.d!==null?x.d:"",x&&x.rep?"Sí":""].join(",")+"\n"});
+const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([t],{type:"text/csv;charset=utf-8"}));a.download="asistencia_"+F+".csv";document.body.appendChild(a);a.click();a.remove()};
+$("cp").onclick=async()=>{const by={};LAST.reg.forEach(x=>by[x.i]=x);const g=k=>R.filter((_,i)=>by[i]&&by[i].estado===k),f=R.filter((_,i)=>!by[i]);
+const x="Asistencia · 3ro BTI A · Sistemas Operativos y Redes\n"+F+"\nPresentes: "+g("Presente").length+" | Atrasos: "+g("Atraso").length+" | Sin registrar: "+f.length+"\n\nSin registrar:\n"+(f.join("\n")||"-")+"\n\nAtrasos:\n"+(g("Atraso").join("\n")||"-");
+try{await navigator.clipboard.writeText(x);toast("Resumen copiado")}catch(e){toast("No se pudo copiar")}};
+$("tn").innerHTML=R.map((n,i)=>"<option value="+i+">"+(i+1)+". "+esc(n)+"</option>").join("");
+$("tb").onclick=async()=>{const i=+$("tn").value,pin=$("tp").value.replace(/\D/g,"");try{$("tst").textContent=(await kdf(i,pin))===PH[i]?"PIN correcto ✓":"PIN incorrecto ✗"}catch(e){$("tst").textContent="Abre esta página desde tu enlace https://"}};
+if(SS.g("k")===CLH)start();
+</script></body></html>
